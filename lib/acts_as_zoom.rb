@@ -188,7 +188,7 @@ module ZoomMixin
         #######
         def zoom_db_to_prefs(zoom_db)
           prefs = { :host => zoom_db.host,
-            :port = zoom_db.port,
+            :port => zoom_db.port,
             :database_name => zoom_db.database_name,
             :zoom_user => zoom_db.zoom_user,
             :zoom_password => zoom_db.zoom_password }
