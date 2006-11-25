@@ -53,7 +53,7 @@ You will need to define at least one Z39.50 server to point acts_as_zoom via Zoo
 
 You need to choose some combinattion of save_to_public_zoom (anonymous read allowed) or save_to_private_zoom (limited to user with password) Z39.50 databaes.  If you use a private zoom, the save_zoom method will check your object to see if it has a private attribute set to true or false.  In other words, you need to include it your model for this option to work.
 
-  acts_as_zoom { :fields => [:name, :author], :save_to_public_zoom => ['zoom_database_name', 'zoom_database_host'], :save_to_private_zoom => ['zoom_database_name', 'zoom_database_host'] }
+  acts_as_zoom :fields => [:name, :author], :save_to_public_zoom => ['zoom_database_host', 'zoom_database_name'], :save_to_private_zoom => ['zoom_database_host', 'zoom_database_name']
 
 The last option is whether to put the fields specified in XML or not (defaults XML formatting on):
 
@@ -78,7 +78,3 @@ Horowhenua Library Trust (http://www.library.org.nz/)
 acts_as_solr plugin team
 
 Released under the GPL License.
-
-TODO: a scratch list of tasks
-
-# finish to_zoom_db

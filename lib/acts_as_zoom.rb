@@ -286,42 +286,36 @@ module ZoomMixin
 
         # TODO: check this properly converts records to zoom record
         def to_zoom_record
-          logger.debug "to_doc: creating doc for class: #{self.class.name}, id: #{self.id}"
-          doc = REXML::Element.new('doc')
+          logger.debug "to_zoom_record: creating record for class: #{self.class.name}, id: #{self.id}"
+          record = REXML::Element.new('record')
 
           # Zoom id is <classname>:<id> to be unique across all models
 
           # assumes that you have localControlNumber mapped to bib1's Local-number on your Z39.50
           # server, most likely zebra
           # our inserts, updates, and deletes will break if this isn't set up correctly
-          doc.add_element field("localControlNumber", zoom_id)
-
-          #
-          doc.add_element field(zoom_configuration[:type_field], self.class.name)
-          doc.add_element field(zoom_configuration[:primary_key_field], self.id.to_s)
+          record.add_element field("localControlNumber", zoom_id)
 
           # iterate through the fields and add them to the document,
           default = ""
           unless fields_for_zoom
             self.attributes.each_pair do |key,value|
-              doc.add_element field("#{key}", value.to_s) unless key.to_s == "id"
+              record.add_element field("#{key}", value.to_s) unless key.to_s == "id"
               default << "#{value.to_s} "
             end
           else
             fields_for_zoom.each do |field|
               value = self.send("#{field}_for_zoom")
-              doc.add_element field("#{field}", value.to_s)
+              record.add_element field("#{field}", value.to_s)
               default << "#{value.to_s} "
             end
           end
-          doc.add_element field("record", default)
-          logger.debug doc
-          return doc
+          logger.debug record
+          return record
         end
 
         def field(name, value)
-          field = REXML::Element.new("field")
-          field.add_attribute("name", name)
+          field = REXML::Element.new("#{name}")
           field.add_text(value)
           field
         end
