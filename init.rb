@@ -1,1 +1,1 @@
-require 'acts_as_zebra'
+require 'acts_as_zoom'
