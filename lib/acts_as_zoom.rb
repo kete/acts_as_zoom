@@ -257,7 +257,7 @@ module ZoomMixin
           `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
             logger.debug "zoom_save: #{self.class.name} : #{self.id} : #{l}"
           end
-          false
+          true
         end
 
         def zoom_destroy
