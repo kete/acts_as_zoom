@@ -252,8 +252,6 @@ module ZoomMixin
 
           # here's where we actually add/replace the record on the zoom server
           # specialUpdate will insert if no record exists, or replace if one does
-          logger.debug "#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\""
-
           `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
             logger.debug "zoom_save: #{self.class.name} : #{self.id} : #{l}"
           end

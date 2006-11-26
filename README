@@ -53,13 +53,18 @@ You will need to define at least one Z39.50 server to point acts_as_zoom via Zoo
 
 You need to choose some combinattion of save_to_public_zoom (anonymous read allowed) or save_to_private_zoom (limited to user with password) Z39.50 databaes.  If you use a private zoom, the save_zoom method will check your object to see if it has a private attribute set to true or false.  In other words, you need to include it your model for this option to work.
 
-  acts_as_zoom :fields => [:name, :author], :save_to_public_zoom => ['zoom_database_host', 'zoom_database_name'], :save_to_private_zoom => ['zoom_database_host', 'zoom_database_name']
+  acts_as_zoom :fields => [:title, :description], :save_to_public_zoom => ['zoom_database_host', 'zoom_database_name'], :save_to_private_zoom => ['zoom_database_host', 'zoom_database_name']
+
+Note: errors where you have a nil object and the message has "nil.host" are most likely related to a mismatch in your zoom_dbs, either you have specified in your acts_as_zoom options wrong, the zoom_db hasn't been entered as a ZoomDb instance or it's attributes are incorrect.
 
 The last option is whether to put the fields specified in XML or not (defaults XML formatting on):
 
   ..., :raw => true }
 
-Note that if you choose raw, it assumes that only a single field is specified.  This assumption is based around the idea that that single field is actually a virtual attribute that has the pre-formatted record stuffed in it.
+If you choose raw, it assumes that only a single field is specified.  This assumption is based around the idea that that single field is actually a virtual attribute that has the pre-formatted record stuffed in it.
+
+If you have existing data for you model, you'll probably want to run rebuild_zoom_index for the class.
+
 
 Authors:
 ========
