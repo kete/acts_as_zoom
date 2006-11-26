@@ -11,23 +11,14 @@ my $database = shift;
 my $username = shift;
 my $password = shift;
 
-print "host ".$host;
-print "port ".$port;
-print "recordId ".$recordId;
-print "record ".$record;
-print "action ".$action;
-print "database ".$database;
-print "username ".$username;
-print "password ".$password;
-
 eval {
     $conn = new ZOOM::Connection($host, $port, user => $username, password => $password );
     $conn->option(preferredRecordSyntax => "xml");
 
     if ($database) {
-	$conn->option(databaseName => $database);
+        $conn->option(databaseName => $database);
     }
-    
+
     $p = $conn->package();
     $p->option(action => $action);
     $p->option(recordIdOpaque => $recordId);

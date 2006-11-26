@@ -108,14 +108,12 @@ module ZoomMixin
 
           options = {}
 
-          prefs = zoom_db_to_prefs(zoom_db)
-
-          hostname, port = prefs['host'], prefs['port'].to_i
-          options['user'] = prefs['zoom_user']
-          options['password'] = prefs['zoom_password']
+          hostname, port = zoom_db.host, zoom_db.port.to_i
+          options['user'] = zoom_db.zoom_user
+          options['password'] = zoom_db.zoom_password
 
           conn = ZOOM::Connection.new(options).connect(hostname, port)
-          conn.database_name = prefs[:database_name]
+          conn.database_name = zoom_db.database_name
           # we are always using xml at this point
           conn.preferred_record_syntax = 'XML'
 
@@ -182,18 +180,6 @@ module ZoomMixin
 
           keywords + double_phrases + single_phrases
         end
-
-        #######
-        private
-        #######
-        def zoom_db_to_prefs(zoom_db)
-          prefs = { :host => zoom_db.host,
-            :port => zoom_db.port,
-            :database_name => zoom_db.database_name,
-            :zoom_user => zoom_db.zoom_user,
-            :zoom_password => zoom_db.zoom_password }
-          return prefs
-        end
       end
 
       module InstanceMethods
@@ -210,25 +196,31 @@ module ZoomMixin
           "#{self.class.name}:#{self.id}"
         end
 
-        def zoom_prepare_db_prefs
+        def zoom_choose_zoom_db
           begin
+            public_zoom = configuration[:save_to_public_zoom]
+            private_zoom = configuration[:save_to_private_zoom]
+
             # what is the correct server?
-            # private?
-            prefs = Hash.new
-            if configuration[:save_to_private_zoom]
+            zoom_db_data = Hash.new
+
+            # public by default
+            if public_zoom
+              zoom_db_data = { :db_host => public_zoom[0], :db_name => public_zoom[1] }
+            end
+
+            # even if we have a private zoom db, the object might be public
+            if private_zoom
               # check whether this is a private object
               if self.private?
-                # setup prefs for the private server
-                prefs = zoom_db_to_prefs(ZoomDb.find_by_host_and_database_name(:save_to_private_zoom[0],:save_to_private_zoom[1]))
-              else
-                # setup prefs for the public server
-                prefs = zoom_db_to_prefs(ZoomDb.find_by_host_and_database_name(:save_to_public_zoom[0],:save_to_public_zoom[1]))
+                zoom_db_data = { :db_host => private_zoom[0], :db_name => private_zoom[1] }
               end
-            elsif configuration[:save_to_public_zoom]
-              # setup prefs for the public server
-              prefs = zoom_db_to_prefs(ZoomDb.find_by_host_and_database_name(:save_to_public_zoom[0],:save_to_public_zoom[1]))
             end
-            return prefs
+
+            zoom_db = ZoomDb.find_by_host_and_database_name(zoom_db_data[:db_host],zoom_db_data[:db_name])
+
+            return zoom_db
+
           rescue
             logger.error "Couldn't get any zoom_db configuration parameters."
             false
@@ -245,9 +237,7 @@ module ZoomMixin
               zoom_record = value.to_s
             end
           else
-            zoom_record = REXML::Element.new('add')
-            zoom_record.add_element to_zoom_record
-            zoom_record = zoom_record.to_s
+            zoom_record = to_zoom_record.to_s
           end
         end
 
@@ -258,14 +248,16 @@ module ZoomMixin
           zoom_record = self.zoom_prepare_record
 
           # get the correct zoom database connection parameters
-          prefs = self.zoom_prepare_db_prefs
+          zoom_db = self.zoom_choose_zoom_db
 
           # here's where we actually add/replace the record on the zoom server
           # specialUpdate will insert if no record exists, or replace if one does
-          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl #{prefs[:host]} #{prefs[:port]} #{zoom_id} #{zoom_record} specialUpdate #{prefs[:database_name]} #{prefs[:zoom_user]} #{prefs[:zoom_password]}`.each_line do |l|
+          logger.debug "#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\""
+
+          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
             logger.debug "zoom_save: #{self.class.name} : #{self.id} : #{l}"
           end
-          true
+          false
         end
 
         def zoom_destroy
@@ -275,11 +267,11 @@ module ZoomMixin
           zoom_record = self.zoom_prepare_record
 
           # get the correct zoom database connection parameters
-          prefs = self.zoom_prepare_db_prefs
+          zoom_db = self.zoom_choose_zoom_db
 
           # here's where we actually delete the record on the zoom server
-
-          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl #{prefs[:host]} #{prefs[:port]} #{zoom_id} #{zoom_record} recordDelete #{prefs[:database_name]} #{prefs[:zoom_user]} #{prefs[:zoom_password]}`.each_line do |l|
+          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" recordDelete \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
+            logger.debug "zoom_destroy: #{self.class.name} : #{self.id} : #{l}"
           end
           true
         end
