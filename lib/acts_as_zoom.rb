@@ -77,14 +77,15 @@ module ZoomMixin
         # or be in our app
         def find_by_zoom(options={})
           # expects :query or :pqf_query
-          # and :zoom_db
+          # :limit_to_class, and :zoom_db
           rset = process_query(options)
           if rset.size > 0
             ids = Array.new
             re = Regexp.new("([^:]+)$")
             rset.each_record do |record|
               temp_hash = Hash.from_xml(record.xml)
-              record_id = temp_hash[:localControlNumber].match re
+              zoom_id = temp_hash['record']['localControlNumber']
+              record_id = zoom_id.match re
               record_id = record_id.to_s
               ids << record_id.to_i
             end
@@ -104,6 +105,7 @@ module ZoomMixin
         def process_query(args = {})
           query = args[:query]
           zoom_db = args[:zoom_db]
+          limit_to_class = args[:limit_to_class]
           pqf_query = args[:pqf_query]
 
           options = {}
@@ -149,7 +151,7 @@ module ZoomMixin
             search_terms = split_to_search_terms(query)
             # the and operator along with @attr 1=12 self.class.name
             # limits our results to only the type we are dealing with
-            pqf = "@and @attr 1=12 #{self.class.name} "
+            pqf = "@and @attr 1=12 #{limit_to_class} "
             # add sort by dynamic ranking (relevance to term)
             pqf += "@attr 2=102 "
             # add matching of partial words
