@@ -65,6 +65,17 @@ If you choose raw, it assumes that only a single field is specified.  This assum
 
 If you have existing data for you model, you'll probably want to run rebuild_zoom_index for the class.
 
+You may also want to mess with how zoom_id is formated and placed in the record.  It is highly dependent on how the Z39.50 you are accessing is configured.
+
+!!!YOU WILL need to add some variation of the following to the end of your app/conf/environment.rb file
+
+# used by the acts_as_zoom plugin
+ZoomDb.zoom_id_stub = ""
+ZoomDb.zoom_id_element_name = "localControlNumber"
+# in case your zoom_id is in a nested element
+# separated by /'s
+# no preceding / necessary
+ZoomDb.zoom_id_xml_path_to_element = "record/header"
 
 Authors:
 ========

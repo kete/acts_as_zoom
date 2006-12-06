@@ -2,7 +2,6 @@
 
 require 'active_record'
 require 'rexml/document'
-require 'yaml'
 # this is how we talk to a Z39.50 server
 # like zebra or voyager
 require 'zoom'
@@ -24,6 +23,7 @@ module ZoomMixin
           fields_for_zoom << field
           define_method("#{field}_for_zoom".to_sym) do
             begin
+              logger.info("inside begin of define method")
               value = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
             rescue
               value = ''
@@ -81,10 +81,25 @@ module ZoomMixin
           rset = process_query(options)
           if rset.size > 0
             ids = Array.new
+
+            # by having this match the end of the line
+            # from the last colon, it is not necessary
+            # to pull out the ZoomDb.zoom_id_stub first
             re = Regexp.new("([^:]+)$")
+
             rset.each_record do |record|
+              # walk through nested elements to find our zoom_id
               temp_hash = Hash.from_xml(record.xml)
-              zoom_id = temp_hash['record']['localControlNumber']
+              array_of_path_up_to_element = ZoomDb.zoom_id_xml_path_up_to_element.split("/")
+
+              array_of_path_up_to_element.each do |container|
+                unless container.empty?
+                  temp_hash = temp_hash[container]
+                  logger.debug "what is temp_hash : #{temp_hash.to_s}"
+                end
+              end
+
+              zoom_id = temp_hash[ZoomDb.zoom_id_element_name]
               record_id = zoom_id.match re
               record_id = record_id.to_s
               ids << record_id.to_i
@@ -195,7 +210,11 @@ module ZoomMixin
           # this form of recordId also assumes that Class:id is unique in the Z39.50 server
           # thus limiting the Z39.50 database to one rails app
           # it's pretty trivial to set up an additional Z39.50 db, so this seems reasonable
-          "#{self.class.name}:#{self.id}"
+          zoom_id = ""
+          if ZoomDb.zoom_id_stub
+            zoom_id = ZoomDb.zoom_id_stub
+          end
+          zoom_id += "#{self.class.name}:#{self.id}"
         end
 
         def zoom_choose_zoom_db
@@ -234,13 +253,14 @@ module ZoomMixin
           # raw?
           if configuration[:raw]
             # assumes only a single field, as noted in the README
-            fields_for_zoom.first do |field|
+            fields_for_zoom.each do |field|
               value = self.send("#{field}_for_zoom")
               zoom_record = value.to_s
             end
           else
             zoom_record = to_zoom_record.to_s
           end
+          return zoom_record
         end
 
         # saves to the appropriate ZoomDb based on configuration
@@ -281,12 +301,13 @@ module ZoomMixin
           logger.debug "to_zoom_record: creating record for class: #{self.class.name}, id: #{self.id}"
           record = REXML::Element.new('record')
 
-          # Zoom id is <classname>:<id> to be unique across all models
+          # Zoom id is <ZoomDb.zoom_id_stub><classname>:<id> to be unique across all models
 
-          # assumes that you have localControlNumber mapped to bib1's Local-number on your Z39.50
+          # assumes that you have ZoomDb.zoom_id_element_name mapped to record id on your Z39.50 server
           # server, most likely zebra
           # our inserts, updates, and deletes will break if this isn't set up correctly
-          record.add_element field("localControlNumber", zoom_id)
+          id_field = ZoomDb.zoom_id_element_name
+          record.add_element field(id_field, zoom_id)
 
           # iterate through the fields and add them to the document,
           default = ""
