@@ -255,6 +255,10 @@ module ZoomMixin
             # assumes only a single field, as noted in the README
             fields_for_zoom.each do |field|
               value = self.send("#{field}_for_zoom")
+              # TODO: because id isn't available until after a save for new objects,
+              # we have a HACK to add id into record here
+              # two places in oac_record are marked with !!!ID!!!
+              value = value.gsub("!!!ID!!!", self.id.to_s)
               zoom_record = value.to_s
             end
           else
@@ -298,13 +302,25 @@ module ZoomMixin
           # need to pass in whole record as well as zoom_id, even though it's a delete
           zoom_record = self.zoom_prepare_record
 
+          # in order to pass the record with possible " and 's
+          # we write this to a temp file
+          # this adds an assumption about where tmp is
+          # it would better to use app/tmp
+          dest = File.new('/tmp/tmp-record.xml','w+')
+          dest << zoom_record
+          dest.close
+
           # get the correct zoom database connection parameters
           zoom_db = self.zoom_choose_zoom_db
 
           # here's where we actually delete the record on the zoom server
-          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" recordDelete \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
+          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"/tmp/tmp-record.xml\" recordDelete \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
             logger.debug "zoom_destroy: #{self.class.name} : #{self.id} : #{l}"
           end
+
+          # erase the temp record file
+          File.delete('/tmp/tmp-record.xml')
+
           true
         end
 
