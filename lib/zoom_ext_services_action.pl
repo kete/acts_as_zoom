@@ -5,15 +5,22 @@ use ZOOM;
 my $host = shift;
 my $port = shift;
 my $recordId = shift;
-my $record = shift;
+my $record_path = shift;
 my $action = shift;
 my $database = shift;
 my $username = shift;
 my $password = shift;
 
+
+my $record;
+open(FILE, $record_path) || die("Could not open file!");
+    undef $/;
+    $record=<FILE>;
+close(FILE);
+
 eval {
     $conn = new ZOOM::Connection($host, $port, user => $username, password => $password );
-    $conn->option(preferredRecordSyntax => "xml");
+    # $conn->option(preferredRecordSyntax => "xml");
 
     if ($database) {
         $conn->option(databaseName => $database);

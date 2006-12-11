@@ -40,7 +40,7 @@ module ZoomMixin
             :save_to_private_zoom => nil
           }
 
-          # we need at least save_to_public_zoom to have a hash of :database and :host
+          # we need at least save_to_public_zoom to have an array of :host and :database
           configuration.update(options) if options.is_a?(Hash)
 
           class_eval <<-CLE
@@ -269,14 +269,26 @@ module ZoomMixin
 
           zoom_record = self.zoom_prepare_record
 
+          # in order to pass the record with possible " and 's
+          # we write this to a temp file
+          # this adds an assumption about where tmp is
+          # it would better to use app/tmp
+          dest = File.new('/tmp/tmp-record.xml','w+')
+          dest << zoom_record
+          dest.close
+
           # get the correct zoom database connection parameters
           zoom_db = self.zoom_choose_zoom_db
 
           # here's where we actually add/replace the record on the zoom server
           # specialUpdate will insert if no record exists, or replace if one does
-          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"#{zoom_record}\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
+          `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"/tmp/tmp-record.xml\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
             logger.debug "zoom_save: #{self.class.name} : #{self.id} : #{l}"
           end
+
+          # erase the temp record file
+          File.delete('/tmp/tmp-record.xml')
+
           true
         end
 
