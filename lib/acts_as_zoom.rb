@@ -254,7 +254,9 @@ module ZoomMixin
           if configuration[:raw]
             # assumes only a single field, as noted in the README
             fields_for_zoom.each do |field|
+              logger.debug("inside fields_for_zoom")
               value = self.send("#{field}_for_zoom")
+              logger.debug("value is? #{value}")
               # TODO: because id isn't available until after a save for new objects,
               # we have a HACK to add id into record here
               # two places in oac_record are marked with !!!ID!!!
