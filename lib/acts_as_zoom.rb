@@ -65,45 +65,98 @@ module ZoomMixin
             CLE
         end
 
-        # we want to stay closer to process_query directly
-        # find_by_zoom is may be worth keeping, but probably not
-
-        # adjust to return zoom result set which then can have the following done to it:
-        # result_set[key] - get the record corresponding to that key
-        # each_record{|record| block_code} pretty obvious, probably mostly useful for small result sets
-        # length or size - number of records in set, obviously useful for pagination, etc.
+        # operate on zoom result set which then can have the following done to it:
         # see http://ruby-zoom.rubyforge.org/xhtml/ch04.html
-        # the problem here is that is we have to accomdate results that may not match our class
-        # or be in our app
+
+        # given a zoom result set
+        # and optionally start and end record range
+        # returns zoom records
+        def records_from_zoom_result_set(options={})
+          logger.debug("inside records_from_zoom_result_set")
+          rset = options[:result_set]
+
+          records = ''
+          if options[:start_record].nil?
+            records = rset.records
+          else
+            records = rset[options[:start_record]..options[:end_record]]
+          end
+
+          return records
+        end
+
+        # collect the ids of the records
+        def ids_from_zoom_result_set(options={})
+
+          rset = options[:result_set]
+          ids = Array.new
+
+          # by having this match the end of the line
+          # from the last colon, it is not necessary
+          # to pull out the ZoomDb.zoom_id_stub first
+          re = Regexp.new("([^:]+)$")
+
+          records = ''
+
+          if options[:start_record].nil?
+            records = records_from_zoom_result_set(:result_set => rset)
+          else
+            records = records_from_zoom_result_set(:result_set => rset,
+                                                   :start_record => options[:start_record],
+                                                   :end_record => options[:end_record])
+          end
+
+          records.each do |record|
+            # walk through nested elements to find our zoom_id
+            temp_hash = Hash.from_xml(record.xml)
+            array_of_path_up_to_element = ZoomDb.zoom_id_xml_path_up_to_element.split("/")
+
+            array_of_path_up_to_element.each do |container|
+              temp_hash = temp_hash[container] unless container.empty?
+            end
+
+
+            zoom_id = temp_hash[ZoomDb.zoom_id_element_name]
+            record_id = zoom_id.match re
+            record_id = record_id.to_s
+            ids << record_id.to_i
+            return ids
+          end
+        end
+
+        # processes a passed in query
+        # returns matching objects in our model
         def find_by_zoom(options={})
           # expects :query or :pqf_query
-          # :limit_to_class, and :zoom_db
+          # and :zoom_db
           rset = process_query(options)
           if rset.size > 0
+            ids = ids_from_zoom_result_set(:result_set => rset)
+            conditions = [ "#{self.table_name}.id in (?)", ids ]
+            result = self.find(:all, :conditions => conditions)
+          else
+            return ""
+          end
+        end
+
+        # takes in an existing zoom result set
+        # optionally a start and end record range
+        # returns matching objects in our model
+        def find_by_zoom_result_set(options={})
+          # expects to be passed an existing :result_set object
+          # :start_record
+          # and :end_record
+          rset = options[:result_set]
+          if rset.size > 0
             ids = Array.new
-
-            # by having this match the end of the line
-            # from the last colon, it is not necessary
-            # to pull out the ZoomDb.zoom_id_stub first
-            re = Regexp.new("([^:]+)$")
-
-            rset.each_record do |record|
-              # walk through nested elements to find our zoom_id
-              temp_hash = Hash.from_xml(record.xml)
-              array_of_path_up_to_element = ZoomDb.zoom_id_xml_path_up_to_element.split("/")
-
-              array_of_path_up_to_element.each do |container|
-                unless container.empty?
-                  temp_hash = temp_hash[container]
-                  logger.debug "what is temp_hash : #{temp_hash.to_s}"
-                end
-              end
-
-              zoom_id = temp_hash[ZoomDb.zoom_id_element_name]
-              record_id = zoom_id.match re
-              record_id = record_id.to_s
-              ids << record_id.to_i
+            if options[:start_record].nil?
+              ids = ids_from_zoom_result_set(:result_set => rset)
+            else
+              ids = ids_from_zoom_result_set(:result_set => rset,
+                                             :start_record => options[:start_record],
+                                             :end_record => options[:end_record])
             end
+
             conditions = [ "#{self.table_name}.id in (?)", ids ]
             result = self.find(:all, :conditions => conditions)
           else
@@ -117,11 +170,14 @@ module ZoomMixin
           logger.debug self.count>0 ? "Index for #{self.name} has been rebuilt" : "Nothing to index for #{self.name}"
         end
 
+        # hits up a zoom_db for results for a pqf_query
+        # note that we we leave it up to the application to formulate
+        # the query and they should match the syntax
+        # of what the zoom_db expects
+        # returns a zoom result set
         def process_query(args = {})
-          query = args[:query]
           zoom_db = args[:zoom_db]
-          limit_to_class = args[:limit_to_class]
-          pqf_query = args[:pqf_query]
+          query = args[:query]
 
           options = {}
 
@@ -134,50 +190,8 @@ module ZoomMixin
           # we are always using xml at this point
           conn.preferred_record_syntax = 'XML'
 
-          # to search "any" attribute
-          # don't specify an attr
-          # assumes thatt your z39.50 database
-          # has "all" mapped to "any"
-          # attr = case type
-          #        when SEARCH_BY_ISBN     then [7]
-          #        when SEARCH_BY_TITLE    then [4]
-          #        when SEARCH_BY_AUTHORS  then [1, 1003]
-          #        when SEARCH_BY_KEYWORD  then [1016]
-          #        end
-          # make case insensitive
-          # make fuzzy searches
-          # @attr 5=103 is "fuzzy", but not really, and breaks if we add other attributes
-          # so we are going to use @attr 5=3, which allows truncation from both the left and right side
-          # of the search term
-          # i.e. where the record includes "test", find @attr 5=3 est or find @attr 5=3 tes would both match
-          # strangely this also turns on case insensitivity
-
-          # query = simply search terms i.e. a list of words to look for
-          # may include phrases noted by double quotes or single quotes
-          # whack an @and (more terms narrows search results)
-          # we need this for limiting our results to a type based on zoom_id's class name
-          # this assumes your record has an attribute that maps to bib1.att's attr 12
-          pqf = ""
-          if pqf_query
-            # this is free form, all bets are off
-            # probably used by federated searches
-            pqf = pqf_query.to_s
-          else
-            search_terms = split_to_search_terms(query)
-            # the and operator along with @attr 1=12 self.class.name
-            # limits our results to only the type we are dealing with
-            pqf = "@and @attr 1=12 #{limit_to_class} "
-            # add sort by dynamic ranking (relevance to term)
-            pqf += "@attr 2=102 "
-            # add matching of partial words
-            # which also adds case insensitivity for some reason
-            pqf += "@attr 5=3 "
-            # now add the words and phrases we are searching for
-            pqf += search_terms.join(" ")
-          end
-
-          puts "pqf is #{pqf}, syntax XML" if $Z3950_DEBUG
-          conn.search(pqf)
+          logger.info("query is #{query.to_s}, syntax XML")
+          conn.search(query.to_s)
         end
 
         def split_to_search_terms(query)
@@ -185,6 +199,7 @@ module ZoomMixin
           # return an array of terms either words or phrases
           # Find all phrases enclosed in quotes and pull
           # them into a flat array of phrases
+          query = query.to_s
           double_phrases = query.scan(/"(.*?)"/).flatten
           single_phrases = query.scan(/'(.*?)'/).flatten
 

@@ -77,6 +77,10 @@ ZoomDb.zoom_id_element_name = "localControlNumber"
 # no preceding / necessary
 ZoomDb.zoom_id_xml_path_to_element = "record/header"
 
+How you formulate your queries and generally use your connections is beyond the scope of this document.  However, we recommend you take a look at the Kete application for examples (rather complex, but should be useful).  You can find out more here:
+
+http://kete.net.nz/
+
 Authors:
 ========
 
@@ -90,6 +94,8 @@ Thiago Jackiw => tjackiw@gmail.com
 Special Thanks to:
 ==================
 Horowhenua Library Trust (http://www.library.org.nz/)
+
+The Zebra team at Index Data (http://indexdata.dk/zebra/)
 
 acts_as_solr plugin team
 
