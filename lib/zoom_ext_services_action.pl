@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+# you may want to change above to /opt/loca/bin/perl
+# if you are using perl from Macports on Mac OS X
 use ZOOM;
 
 my $host = shift;
