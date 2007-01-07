@@ -4,7 +4,11 @@ require 'active_record'
 require 'rexml/document'
 # this is how we talk to a Z39.50 server
 # like zebra or voyager
-# if you get missing soure file errors
+# if you get missing source file errors
+# do "which ruby"
+# chances are that you have more than one ruby
+# and your env has the wrong one being selected to use
+# or
 # specify the complete path to zoom
 # here's an alternative path that works with Macports
 # on Mac OS X
