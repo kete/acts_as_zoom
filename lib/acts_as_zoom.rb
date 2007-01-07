@@ -4,6 +4,11 @@ require 'active_record'
 require 'rexml/document'
 # this is how we talk to a Z39.50 server
 # like zebra or voyager
+# if you get missing soure file errors
+# specify the complete path to zoom
+# here's an alternative path that works with Macports
+# on Mac OS X
+# require '/opt/local/lib/ruby/site_ruby/1.8/powerpc-darwin8.8.0/zoom.bundle'
 require 'zoom'
 # our model for storing Z39.50 server connection information
 require 'zoom_db'
