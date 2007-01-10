@@ -46,7 +46,8 @@ module ZoomMixin
             :fields => nil,
             :raw => false,
             :save_to_public_zoom => nil,
-            :save_to_private_zoom => nil
+            :save_to_private_zoom => nil,
+            :additional_zoom_id_attribute => nil
           }
 
           # we need at least save_to_public_zoom to have an array of :host and :database
@@ -227,7 +228,7 @@ module ZoomMixin
         include ZoomMixin
 
         def zoom_id
-          # assumes that the Z39.50 on the other end uses save format for recordId
+          # assumes that the Z39.50 on the other end uses same format for recordId
           # as we we have
           # seems like a safe assumption, seeing as we have write perm on the Z39.50 server
           # you may have to adjust for your needs
@@ -235,8 +236,14 @@ module ZoomMixin
           # thus limiting the Z39.50 database to one rails app
           # it's pretty trivial to set up an additional Z39.50 db, so this seems reasonable
           zoom_id = ""
-          if ZoomDb.zoom_id_stub
+          if !ZoomDb.zoom_id_stub.blank?
             zoom_id = ZoomDb.zoom_id_stub
+          end
+          if !configuration[:additional_zoom_id_attribute].blank?
+            field = configuration[:additional_zoom_id_attribute]
+            value = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
+            zoom_id += value.to_s
+            zoom_id += ":"
           end
           zoom_id += "#{self.class.name}:#{self.id}"
         end
@@ -295,7 +302,7 @@ module ZoomMixin
 
         # saves to the appropriate ZoomDb based on configuration
         def zoom_save
-          logger.debug "zoom_save: #{self.class.name} : #{self.id}"
+          logger.debug "zoom_save: #{zoom_id}"
 
           zoom_record = self.zoom_prepare_record
 
@@ -313,7 +320,7 @@ module ZoomMixin
           # here's where we actually add/replace the record on the zoom server
           # specialUpdate will insert if no record exists, or replace if one does
           `#{RAILS_ROOT}/vendor/plugins/acts_as_zoom/lib/zoom_ext_services_action.pl \"#{zoom_db.host}\" \"#{zoom_db.port}\" \"#{zoom_id}\" \"/tmp/tmp-record.xml\" specialUpdate \"#{zoom_db.database_name}\" \"#{zoom_db.zoom_user}\" \"#{zoom_db.zoom_password}\"`.each_line do |l|
-            logger.debug "zoom_save: #{self.class.name} : #{self.id} : #{l}"
+            logger.debug "zoom_save: #{zoom_id} : #{l}"
           end
 
           # erase the temp record file
