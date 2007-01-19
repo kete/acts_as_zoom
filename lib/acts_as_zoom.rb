@@ -32,7 +32,6 @@ module ZoomMixin
           fields_for_zoom << field
           define_method("#{field}_for_zoom".to_sym) do
             begin
-              logger.info("inside begin of define method")
               value = self[field] || self.instance_variable_get("@#{field.to_s}".to_sym) || self.method(field).call
             rescue
               value = ''
@@ -47,13 +46,16 @@ module ZoomMixin
             :raw => false,
             :save_to_public_zoom => nil,
             :save_to_private_zoom => nil,
-            :additional_zoom_id_attribute => nil
+            :additional_zoom_id_attribute => nil,
+            :use_save_callback => true
           }
 
           # we need at least save_to_public_zoom to have an array of :host and :database
           configuration.update(options) if options.is_a?(Hash)
 
-          class_eval <<-CLE
+          if configuration[:use_save_callbacke]
+
+            class_eval <<-CLE
               include ZoomMixin::Acts::ARZoom::InstanceMethods
 
               after_save    :zoom_save
@@ -73,6 +75,33 @@ module ZoomMixin
                 @@fields_for_zoom = nil
               end
             CLE
+          else
+            # the model opts out of automatic
+            # after_save    :zoom_save
+            # and will call the zoom_save method explicitly
+            # probably in the controller
+            class_eval <<-CLE
+              include ZoomMixin::Acts::ARZoom::InstanceMethods
+
+              after_destroy :zoom_destroy
+
+              cattr_accessor :fields_for_zoom
+              cattr_accessor :configuration
+
+              @@fields_for_zoom = Array.new
+              @@configuration = configuration
+
+              if configuration[:fields].respond_to?(:each)
+                configuration[:fields].each do |field|
+                  get_field_value(field)
+                end
+              else
+                @@fields_for_zoom = nil
+              end
+            CLE
+
+          end
+
         end
 
         # operate on zoom result set which then can have the following done to it:
@@ -285,13 +314,7 @@ module ZoomMixin
           if configuration[:raw]
             # assumes only a single field, as noted in the README
             fields_for_zoom.each do |field|
-              logger.debug("inside fields_for_zoom")
               value = self.send("#{field}_for_zoom")
-              logger.debug("value is? #{value}")
-              # TODO: because id isn't available until after a save for new objects,
-              # we have a HACK to add id into record here
-              # two places in oac_record are marked with !!!ID!!!
-              value = value.gsub("!!!ID!!!", self.id.to_s)
               zoom_record = value.to_s
             end
           else
