@@ -53,7 +53,7 @@ module ZoomMixin
           # we need at least save_to_public_zoom to have an array of :host and :database
           configuration.update(options) if options.is_a?(Hash)
 
-          if configuration[:use_save_callbacke]
+          if configuration[:use_save_callback]
 
             class_eval <<-CLE
               include ZoomMixin::Acts::ARZoom::InstanceMethods
